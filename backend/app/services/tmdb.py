@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 class TMDBError(RuntimeError):
     """Raised when TMDB requests fail."""
 
+    def __init__(self, message: str, status_code: int = 502):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 async def _tmdb_get(path: str, params: dict) -> dict:
     timeout = httpx.Timeout(10.0, connect=5.0)
@@ -19,11 +23,16 @@ async def _tmdb_get(path: str, params: dict) -> dict:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as exc:
+            status_code = exc.response.status_code
             logger.exception("TMDB returned an error for %s", path)
-            raise TMDBError(f"TMDB responded with HTTP {exc.response.status_code}") from exc
+            if status_code in {401, 403}:
+                raise TMDBError("TMDB authentication failed", status_code=502) from exc
+            if status_code == 404:
+                raise TMDBError("TMDB resource not found", status_code=404) from exc
+            raise TMDBError(f"TMDB responded with HTTP {status_code}") from exc
         except httpx.RequestError as exc:
             logger.exception("TMDB request failed for %s", path)
-            raise TMDBError("TMDB request failed") from exc
+            raise TMDBError("TMDB request failed (network or DNS issue)", status_code=503) from exc
 
 async def search_movies(query:str) -> list:
     data = await _tmdb_get(

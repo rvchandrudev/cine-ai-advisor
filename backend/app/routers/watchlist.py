@@ -27,7 +27,7 @@ async def _get_or_create_movie(tmdb_id: int, db: AsyncSession) -> Movie:
         details = await get_movie_details(tmdb_id)
     except TMDBError as exc:
         logger.exception("Failed to fetch TMDB movie %s", tmdb_id)
-        raise HTTPException(status_code=502, detail="Unable to fetch movie details") from exc
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
     movie = Movie(
         tmdb_id=details["id"],

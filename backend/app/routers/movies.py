@@ -23,7 +23,7 @@ async def search(query: str):
         results = await search_movies(query)
     except TMDBError as exc:
         logger.exception("Movie search failed")
-        raise HTTPException(status_code=502, detail="Movie search service unavailable") from exc
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return {"results": results}
 
 @router.get("/trending")
@@ -33,7 +33,7 @@ async def trending():
         results = await get_trending_movies()
     except TMDBError as exc:
         logger.exception("Trending movies lookup failed")
-        raise HTTPException(status_code=502, detail="Trending movies service unavailable") from exc
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return {"results": results}
 
 @router.get("/{tmdb_id}")
@@ -43,7 +43,7 @@ async def movie_detail(tmdb_id:int):
         movie = await get_movie_details(tmdb_id)
     except TMDBError as exc:
         logger.exception("Movie detail lookup failed for %s", tmdb_id)
-        raise HTTPException(status_code=502, detail="Movie service unavailable") from exc
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     if movie.get("success") is False:
         raise HTTPException(status_code=404, detail="Movie not found")
     return movie
@@ -55,5 +55,5 @@ async def similar_movies(tmdb_id: int):
         results = await get_similar_movies(tmdb_id)
     except TMDBError as exc:
         logger.exception("Similar movie lookup failed for %s", tmdb_id)
-        raise HTTPException(status_code=502, detail="Movie service unavailable") from exc
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return {"results": results}
