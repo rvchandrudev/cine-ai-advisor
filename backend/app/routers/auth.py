@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from app.models.schemas import UserSignup, UserLogin, TokenResponse
 from app.config import settings
 
 router = APIRouter(prefix = "/auth", tags=["Auth"])
+logger = logging.getLogger(__name__)
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -19,6 +21,8 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
 
 def create_access_token(data: dict) -> str:
+    if not settings.secret_key:
+        raise RuntimeError("JWT secret_key is not configured")
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes= settings.access_token_expire_minutes)
     to_encode.update({"exp" : expire})
@@ -46,10 +50,14 @@ async def signup(request: UserSignup, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
 
-    token = create_access_token({
-        "sub" : str(user.id),
-        "email": user.email
-    })
+    try:
+        token = create_access_token({
+            "sub" : str(user.id),
+            "email": user.email
+        })
+    except RuntimeError as exc:
+        logger.exception("Token creation failed during signup")
+        raise HTTPException(status_code=500, detail="Authentication service misconfigured") from exc
 
     return TokenResponse(
         access_token = token
@@ -69,12 +77,16 @@ async def login(request: UserLogin, db: AsyncSession = Depends(get_db)):
             detail="Invalid email or password"
         )
 
-    token = create_access_token(
-        {
-            "sub": str(user.id), 
-            "email": user.email
-        }
-    )
+    try:
+        token = create_access_token(
+            {
+                "sub": str(user.id),
+                "email": user.email
+            }
+        )
+    except RuntimeError as exc:
+        logger.exception("Token creation failed during login")
+        raise HTTPException(status_code=500, detail="Authentication service misconfigured") from exc
 
     return TokenResponse(
         access_token = token

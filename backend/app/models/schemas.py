@@ -1,10 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional
 from datetime import datetime
 
 class UserSignup(BaseModel):
     email: str
-    password: str = Field(..., min_length=0)
+    password: str = Field(..., min_length=8)
     display_name: Optional[str] = None
 
 class UserLogin(BaseModel):
@@ -26,12 +26,14 @@ class MovieResponse(BaseModel):
     genres: Optional[list]
     vote_average: Optional[float]
 
-    class config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class WatchlistItemCreate(BaseModel):
-    move_id: int
+    tmdb_id: int = Field(..., alias="movie_id")
     status: str = "want_to_watch"
+    rating: Optional[int] = None
+
+    model_config = ConfigDict(populate_by_name=True)
 
 class WatchlistItemResponse(BaseModel):
     id:int
@@ -41,8 +43,7 @@ class WatchlistItemResponse(BaseModel):
     movie: Optional[MovieResponse]
     added_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length = 1)
@@ -51,5 +52,4 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     session_id: int
     message: str
-    recommendations: list = []
-
+    recommendations: list = Field(default_factory=list)

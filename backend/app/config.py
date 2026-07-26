@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     secret_key:str = ""
     access_token_expire_minutes:int = 60
+    skip_db_init: bool = False
     
 
 settings = Settings()
